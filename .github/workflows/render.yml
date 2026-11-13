@@ -7,14 +7,18 @@ on:
         description: Google Drive file id of episode.json (shared with anyone with the link)
         required: true
         type: string
-      callback_url:
-        description: URL to notify when the video is ready (the n8n resume webhook)
-        required: false
+      release_tag:
+        description: Tag of the release that will hold the video (chosen by n8n so it knows the video link)
+        required: true
         type: string
       episode_name:
-        description: Name used for the video file
+        description: Name used for the release title
         required: false
         default: episode
+        type: string
+      resumeUrl:
+        description: n8n resume webhook, called when the render ends
+        required: false
         type: string
 
 permissions:
@@ -25,9 +29,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     env:
-      TAG: ep-${{ github.run_id }}
+      TAG: ${{ inputs.release_tag }}
       EPISODE_FILE_ID: ${{ inputs.episode_file_id }}
-      CALLBACK_URL: ${{ inputs.callback_url }}
+      RESUME_URL: ${{ inputs.resumeUrl }}
       EPISODE_NAME: ${{ inputs.episode_name }}
       RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
     steps:
@@ -56,23 +60,15 @@ jobs:
             --concurrency=100% --crf=23 --timeout=120000 $BROWSER_FLAG
 
       - name: Publish video
-        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" out/video.mp4 --title "$EPISODE_NAME (${{ github.run_number }})" --notes "Rendered automatically."
-          echo "video_url=https://github.com/${{ github.repository }}/releases/download/$TAG/video.mp4" >> "$GITHUB_OUTPUT"
+          gh release create "$TAG" out/video.mp4 --title "$EPISODE_NAME" --notes "Rendered automatically ($RUN_URL)"
 
-      - name: Notify n8n (success)
-        if: success() && inputs.callback_url != ''
+      - name: Tell n8n the render ended
+        if: always() && inputs.resumeUrl != ''
         env:
-          VIDEO_URL: ${{ steps.publish.outputs.video_url }}
+          JOB_STATUS: ${{ job.status }}
         run: |
-          curl -sS --fail-with-body -X POST "$CALLBACK_URL" -H 'Content-Type: application/json' \
-            -d "{\"status\":\"success\",\"video_url\":\"$VIDEO_URL\",\"run_url\":\"$RUN_URL\"}"
-
-      - name: Notify n8n (failure)
-        if: failure() && inputs.callback_url != ''
-        run: |
-          curl -sS -X POST "$CALLBACK_URL" -H 'Content-Type: application/json' \
-            -d "{\"status\":\"failed\",\"run_url\":\"$RUN_URL\"}"
+          case "$RESUME_URL" in *\?*) SEP='&' ;; *) SEP='?' ;; esac
+          curl -sS -m 60 "${RESUME_URL}${SEP}status=${JOB_STATUS}" || true
