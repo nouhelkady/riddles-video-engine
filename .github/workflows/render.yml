@@ -71,4 +71,11 @@ jobs:
           JOB_STATUS: ${{ job.status }}
         run: |
           case "$RESUME_URL" in *\?*) SEP='&' ;; *) SEP='?' ;; esac
-          curl -sS -m 60 "${RESUME_URL}${SEP}status=${JOB_STATUS}" || true
+          URL="${RESUME_URL}${SEP}status=${JOB_STATUS}"
+          if curl -sS -m 60 --fail -o /dev/null "$URL"; then
+            echo "n8n resumed (GET)"
+          elif curl -sS -m 60 --fail -o /dev/null -X POST -H 'Content-Type: application/json' -d "{\"status\":\"$JOB_STATUS\"}" "$URL"; then
+            echo "n8n resumed (POST)"
+          else
+            echo "::warning::Could not resume the n8n execution"
+          fi
