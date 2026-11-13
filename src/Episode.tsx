@@ -3,7 +3,7 @@ import {AbsoluteFill, Series} from 'remotion';
 import {Card} from './Card';
 import {Riddle} from './Riddle';
 import {ensureFonts, FONT} from './fonts';
-import {EpisodeProps, segmentFrames} from './types';
+import {EpisodeProps, riddleTiming, segmentFrames} from './types';
 
 ensureFonts();
 
@@ -13,7 +13,7 @@ export const Episode: React.FC<EpisodeProps> = (props) => (
       {props.segments.map((seg, i) => (
         <Series.Sequence key={i} durationInFrames={segmentFrames(seg, props)}>
           {seg.type === 'riddle' ? (
-            <Riddle seg={seg} thinkSeconds={props.thinkSeconds} revealSeconds={props.revealSeconds} />
+            <Riddle seg={seg} thinkSeconds={riddleTiming(seg, props).think} />
           ) : (
             <Card seg={seg} />
           )}

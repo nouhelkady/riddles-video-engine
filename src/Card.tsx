@@ -1,5 +1,5 @@
 import React from 'react';
-import {AbsoluteFill, Audio, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
+import {AbsoluteFill, Audio, Sequence, interpolate, spring, staticFile, useCurrentFrame, useVideoConfig} from 'remotion';
 import {CardSegment} from './types';
 
 const THEMES: Record<CardSegment['type'], {bg: string; accent: string}> = {
@@ -21,6 +21,11 @@ export const Card: React.FC<{seg: CardSegment}> = ({seg}) => {
   return (
     <AbsoluteFill style={{background: theme.bg, opacity: fadeOut, alignItems: 'center', justifyContent: 'center'}}>
       <Audio src={staticFile('sfx/whoosh.wav')} volume={0.7} />
+      {seg.vo ? (
+        <Sequence from={8}>
+          <Audio src={staticFile(`episode/${seg.vo}`)} />
+        </Sequence>
+      ) : null}
       {marks.map((i) => {
         const x = (i * 137) % 100;
         const y = (i * 61 + 13) % 100;

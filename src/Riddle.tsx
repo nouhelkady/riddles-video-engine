@@ -5,7 +5,6 @@ import {RiddleSegment} from './types';
 const BANNER_H = 170;
 const AR_DIGITS = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
 const ar = (n: number) => String(n).split('').map((d) => AR_DIGITS[Number(d)] ?? d).join('');
-const ORDINALS = ['', 'واحد', 'اثنان', 'ثلاثة', 'أربعة', 'خمسة', 'ستة'];
 const stroke = (px: number): React.CSSProperties => ({WebkitTextStroke: `${px}px #000`, paintOrder: 'stroke fill'});
 
 const EMOJI_POOL = ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐸', '🐵', '🐔', '🐧', '🐦', '🦆', '🦉', '🐴', '🦄', '🐝', '🦋', '🐢', '🐙', '🐬', '🐳', '🐘', '🦒', '🦓', '🐪', '🦘', '🐑', '🐐', '🦌', '🐿️', '🦔', '🦜', '🐊'];
@@ -110,9 +109,6 @@ const ColumnSpotlight: React.FC<{count: number; answer: number; t: number}> = ({
           <div key={i} style={{position: 'absolute', left: `${i * w}%`, width: `${w}%`, top: BANNER_H, bottom: 0, background: `rgba(0,0,0,${0.62 * t})`, zIndex: 3}} />
         ),
       )}
-      <div style={{position: 'absolute', left: `${(answer - 0.5) * w}%`, top: BANNER_H + 170 + Math.abs(Math.sin(frame / 6)) * 26, marginLeft: -55, fontSize: 110, zIndex: 4, opacity: t, filter: 'drop-shadow(0 6px 0 #000)'}}>
-        <svg width={110} height={110} viewBox="0 0 110 110"><path d="M55 4 L102 62 H74 V106 H36 V62 H8 Z" fill="#fff" stroke="#000" strokeWidth={8} strokeLinejoin="round" /></svg>
-      </div>
     </>
   );
 };
@@ -166,7 +162,7 @@ const TextCard: React.FC<{seg: RiddleSegment}> = ({seg}) => {
   );
 };
 
-export const Riddle: React.FC<{seg: RiddleSegment; thinkSeconds: number; revealSeconds: number}> = ({seg, thinkSeconds}) => {
+export const Riddle: React.FC<{seg: RiddleSegment; thinkSeconds: number}> = ({seg, thinkSeconds}) => {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
   const thinkFrames = Math.round(thinkSeconds * fps);
@@ -177,6 +173,7 @@ export const Riddle: React.FC<{seg: RiddleSegment; thinkSeconds: number; revealS
   const flash = revealed ? interpolate(frame, [thinkFrames, thinkFrames + 6], [0.7, 0], {extrapolateRight: 'clamp'}) : 0;
   const options = seg.kind === 'image' ? seg.options ?? 0 : 0;
   const img = revealed && seg.revealImage ? seg.revealImage : seg.image;
+  const narrationEnd = seg.voQuestion ? (seg.voQuestionSec ?? 0) + 0.5 : 0;
 
   return (
     <AbsoluteFill style={{backgroundColor: '#101426', opacity: fadeIn}}>
@@ -185,13 +182,23 @@ export const Riddle: React.FC<{seg: RiddleSegment; thinkSeconds: number; revealS
         const file = urgent ? 'sfx/tick-urgent.wav' : s % 2 === 0 ? 'sfx/tick.wav' : 'sfx/tock.wav';
         return (
           <Sequence key={s} from={s * fps} durationInFrames={Math.round(fps * 0.5)}>
-            <Audio src={staticFile(file)} volume={urgent ? 1 : 0.8} />
+            <Audio src={staticFile(file)} volume={s < narrationEnd ? 0.18 : urgent ? 1 : 0.8} />
           </Sequence>
         );
       })}
       <Sequence from={thinkFrames} durationInFrames={Math.round(fps * 1.4)}>
-        <Audio src={staticFile('sfx/ding.wav')} />
+        <Audio src={staticFile('sfx/ding.wav')} volume={seg.voAnswer ? 0.55 : 1} />
       </Sequence>
+      {seg.voQuestion ? (
+        <Sequence from={6}>
+          <Audio src={staticFile(`episode/${seg.voQuestion}`)} />
+        </Sequence>
+      ) : null}
+      {seg.voAnswer ? (
+        <Sequence from={thinkFrames + 12}>
+          <Audio src={staticFile(`episode/${seg.voAnswer}`)} />
+        </Sequence>
+      ) : null}
 
       {seg.kind === 'image' ? (
         <div style={{position: 'absolute', top: BANNER_H, left: 0, right: 0, bottom: 0, overflow: 'hidden', background: 'linear-gradient(135deg,#4f8df7,#9b5cf6)'}}>
@@ -212,5 +219,3 @@ export const Riddle: React.FC<{seg: RiddleSegment; thinkSeconds: number; revealS
     </AbsoluteFill>
   );
 };
-
-export const ordinal = (n: number) => ORDINALS[n] ?? String(n);
