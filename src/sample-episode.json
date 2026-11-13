@@ -1,0 +1,14 @@
+{
+  "episodeId": "sample",
+  "title": "حلقة تجريبية",
+  "thinkSeconds": 20,
+  "revealSeconds": 5,
+  "segments": [
+    {"type": "intro", "title": "ألغاز للأبطال فقط", "subtitle": "هل تستطيع حلها كلها؟", "seconds": 4},
+    {"type": "level", "title": "المستوى السهل"},
+    {"type": "riddle", "kind": "image", "n": 1, "title": "من أكل الكعكة؟", "options": 4, "answer": 3, "clue": "فتات الشوكولاتة ما زال على خده", "reveal": true},
+    {"type": "riddle", "kind": "emojiGrid", "n": 2, "title": "أوجد الرمز المكرر", "reveal": true, "answerText": "ها هو الرمز المكرر"},
+    {"type": "riddle", "kind": "text", "n": 3, "title": "ما هو هذا الشيء؟", "text": "يمشي بلا قدمين، ويبكي بلا عينين", "reveal": false},
+    {"type": "outro", "title": "كم لغزًا حللت؟", "subtitle": "اكتب النتيجة في التعليقات واشترك في القناة"}
+  ]
+}

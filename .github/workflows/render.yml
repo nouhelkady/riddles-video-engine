@@ -1,0 +1,78 @@
+name: Render riddles video
+
+on:
+  workflow_dispatch:
+    inputs:
+      episode_file_id:
+        description: Google Drive file id of episode.json (shared with anyone with the link)
+        required: true
+        type: string
+      callback_url:
+        description: URL to notify when the video is ready (the n8n resume webhook)
+        required: false
+        type: string
+      episode_name:
+        description: Name used for the video file
+        required: false
+        default: episode
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      TAG: ep-${{ github.run_id }}
+      EPISODE_FILE_ID: ${{ inputs.episode_file_id }}
+      CALLBACK_URL: ${{ inputs.callback_url }}
+      EPISODE_NAME: ${{ inputs.episode_name }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install emoji font
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fonts-noto-color-emoji
+
+      - name: Install packages
+        run: npm ci --no-audit --no-fund
+
+      - name: Download episode and pictures
+        run: node scripts/fetch-episode.mjs "$EPISODE_FILE_ID"
+
+      - name: Render video
+        run: |
+          BROWSER="$(which google-chrome || true)"
+          if [ -n "$BROWSER" ]; then BROWSER_FLAG="--browser-executable=$BROWSER"; else npx remotion browser ensure; BROWSER_FLAG=""; fi
+          npx remotion render src/index.ts Episode out/video.mp4 \
+            --props=public/episode/episode.json \
+            --concurrency=100% --crf=23 --timeout=120000 $BROWSER_FLAG
+
+      - name: Publish video
+        id: publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$TAG" out/video.mp4 --title "$EPISODE_NAME (${{ github.run_number }})" --notes "Rendered automatically."
+          echo "video_url=https://github.com/${{ github.repository }}/releases/download/$TAG/video.mp4" >> "$GITHUB_OUTPUT"
+
+      - name: Notify n8n (success)
+        if: success() && inputs.callback_url != ''
+        env:
+          VIDEO_URL: ${{ steps.publish.outputs.video_url }}
+        run: |
+          curl -sS --fail-with-body -X POST "$CALLBACK_URL" -H 'Content-Type: application/json' \
+            -d "{\"status\":\"success\",\"video_url\":\"$VIDEO_URL\",\"run_url\":\"$RUN_URL\"}"
+
+      - name: Notify n8n (failure)
+        if: failure() && inputs.callback_url != ''
+        run: |
+          curl -sS -X POST "$CALLBACK_URL" -H 'Content-Type: application/json' \
+            -d "{\"status\":\"failed\",\"run_url\":\"$RUN_URL\"}"

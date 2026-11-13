@@ -1,0 +1,23 @@
+{
+  "name": "riddles-video-engine",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "fetch": "node scripts/fetch-episode.mjs",
+    "sfx": "node scripts/make-sfx.mjs",
+    "render": "remotion render src/index.ts Episode out/video.mp4 --props=public/episode/episode.json"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.290",
+    "@remotion/fonts": "4.0.290",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.290"
+  },
+  "devDependencies": {
+    "@fontsource/cairo": "^5.1.0",
+    "@types/react": "18.3.12",
+    "typescript": "5.6.3"
+  }
+}
