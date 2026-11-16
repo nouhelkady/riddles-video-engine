@@ -157,7 +157,21 @@ const TextCard: React.FC<{seg: RiddleSegment}> = ({seg}) => {
   return (
     <AbsoluteFill style={{top: BANNER_H, height: 1080 - BANNER_H, background: 'radial-gradient(circle at 50% 35%,#3b2a8c 0%,#151033 70%)', alignItems: 'center', justifyContent: 'center', padding: '0 220px 120px'}}>
       <div style={{position: 'absolute', fontSize: 620, fontWeight: 900, color: 'rgba(255,212,0,.13)', transform: `rotate(${Math.sin(frame / 40) * 6}deg)`}}>؟</div>
-      <div style={{fontSize: 92, fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1.5, ...stroke(8)}}>{seg.text ?? seg.title}</div>
+      {(() => {
+        const full = String(seg.text ?? seg.title ?? '');
+        const m = full.match(/^\s*((?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}\uFE0F?\u200D?)+)\s*/u);
+        if (!m) {
+          return <div style={{fontSize: 92, fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1.5, ...stroke(8)}}>{full}</div>;
+        }
+        const rest = full.slice(m[0].length).trim();
+        const pop = spring({frame, fps: 30, config: {damping: 12}});
+        return (
+          <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10}}>
+            <div style={{fontSize: 400, lineHeight: 1.1, transform: `scale(${0.6 + 0.4 * pop})`, filter: 'drop-shadow(0 18px 30px rgba(0,0,0,.45))'}}>{m[1]}</div>
+            {rest ? <div style={{fontSize: 70, fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1.4, ...stroke(7)}}>{rest}</div> : null}
+          </div>
+        );
+      })()}
     </AbsoluteFill>
   );
 };
