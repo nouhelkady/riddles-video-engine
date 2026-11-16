@@ -17,21 +17,39 @@ const CHANNEL = 'ألغاز القاضي';
 const stroke = (px: number): React.CSSProperties => ({WebkitTextStroke: `${px}px #000`, paintOrder: 'stroke fill'});
 const EMOJI_FONT = "'Noto Color Emoji', 'Apple Color Emoji', sans-serif";
 
-/** Picks up to five riddles spread from the start of the episode (easy) to its end (hard). */
+const REEL_BUDGET = 59 - REEL_INTRO - REEL_OUTRO;
+
+/** Each riddle keeps its narration: thinking time covers the question, the reveal covers the answer. */
+export const reelTiming = (s: RiddleSegment) => ({
+  think: Math.max(REEL_THINK, Math.ceil((s.voQuestionSec ?? 0) + 1.5)),
+  reveal: Math.max(REEL_REVEAL, Math.ceil((s.voAnswerSec ?? 0) + 0.8)),
+});
+const reelSec = (s: RiddleSegment) => {
+  const t = reelTiming(s);
+  return t.think + t.reveal;
+};
+
+/** Riddles spread from the start of the episode (easy) to its end (hard), the shortest of each part, as many as fit under 59 seconds. */
 export const pickReelRiddles = (p: EpisodeProps): RiddleSegment[] => {
   const all = p.segments.filter((s): s is RiddleSegment => s.type === 'riddle');
-  if (all.length <= REEL_COUNT) return all;
-  const picked: RiddleSegment[] = [];
-  for (let i = 0; i < REEL_COUNT; i++) {
-    const idx = Math.round((i * (all.length - 1)) / (REEL_COUNT - 1));
-    if (!picked.includes(all[idx])) picked.push(all[idx]);
+  const parts = Math.min(REEL_COUNT, all.length);
+  let picked: RiddleSegment[] = [];
+  for (let i = 0; i < parts; i++) {
+    const from = Math.floor((i * all.length) / parts);
+    const to = Math.floor(((i + 1) * all.length) / parts);
+    const group = all.slice(from, Math.max(to, from + 1));
+    picked.push(group.reduce((best, s) => (reelSec(s) < reelSec(best) ? s : best), group[0]));
+  }
+  while (picked.length > 2 && picked.reduce((sum, s) => sum + reelSec(s), 0) > REEL_BUDGET) {
+    const longest = picked.reduce((a, b) => (reelSec(b) > reelSec(a) ? b : a), picked[0]);
+    picked = picked.filter((s) => s !== longest);
   }
   return picked;
 };
 
 export const reelFrames = (p: EpisodeProps) => {
-  const n = pickReelRiddles(p).length;
-  return (REEL_INTRO + n * (REEL_THINK + REEL_REVEAL) + REEL_OUTRO) * FPS;
+  const riddles = pickReelRiddles(p);
+  return (REEL_INTRO + riddles.reduce((sum, s) => sum + reelSec(s), 0) + REEL_OUTRO) * FPS;
 };
 
 const Background: React.FC = () => {
@@ -80,7 +98,7 @@ const PictureBox: React.FC<{seg: RiddleSegment; revealed: boolean; t: number}> =
   const {fps} = useVideoConfig();
   const count = seg.options ?? 0;
   const w = 100 / Math.max(1, count);
-  const zoom = interpolate(frame, [0, (REEL_THINK + REEL_REVEAL) * fps], [1, 1.05]);
+  const zoom = interpolate(frame, [0, reelSec(seg) * fps], [1, 1.05]);
   return (
     <div style={{position: 'absolute', top: 560, left: 0, width: REEL_W, height: 608, overflow: 'hidden', borderTop: '8px solid #000', borderBottom: '8px solid #000', direction: 'ltr'}}>
       {seg.image ? <Img src={staticFile(`episode/${seg.image}`)} style={{width: '100%', height: '100%', objectFit: 'cover', transform: `scale(${zoom})`}} /> : null}
@@ -155,7 +173,9 @@ const GridBox: React.FC<{seg: RiddleSegment; revealed: boolean}> = ({seg, reveal
 const ReelRiddle: React.FC<{seg: RiddleSegment; index: number; total: number}> = ({seg, index, total}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
-  const thinkFrames = REEL_THINK * fps;
+  const timing = reelTiming(seg);
+  const thinkFrames = timing.think * fps;
+  const narrationEnd = seg.voQuestion ? (seg.voQuestionSec ?? 0) + 0.4 : 0;
   const revealed = frame >= thinkFrames;
   const t = spring({frame: frame - thinkFrames, fps, config: {damping: 14}});
   const left = Math.max(0, Math.ceil((thinkFrames - frame) / fps));
@@ -166,14 +186,24 @@ const ReelRiddle: React.FC<{seg: RiddleSegment; index: number; total: number}> =
   const ans = answerLine(seg);
   return (
     <AbsoluteFill>
-      {Array.from({length: REEL_THINK}, (_, s) => (
+      {Array.from({length: timing.think}, (_, s) => (
         <Sequence key={s} from={s * fps} durationInFrames={Math.round(fps * 0.5)}>
-          <Audio src={staticFile(REEL_THINK - s <= 3 ? 'sfx/tick-urgent.wav' : s % 2 === 0 ? 'sfx/tick.wav' : 'sfx/tock.wav')} volume={0.85} />
+          <Audio src={staticFile(timing.think - s <= 3 ? 'sfx/tick-urgent.wav' : s % 2 === 0 ? 'sfx/tick.wav' : 'sfx/tock.wav')} volume={s < narrationEnd ? 0.18 : 0.85} />
         </Sequence>
       ))}
+      {seg.voQuestion ? (
+        <Sequence from={6}>
+          <Audio src={staticFile(`episode/${seg.voQuestion}`)} />
+        </Sequence>
+      ) : null}
       <Sequence from={thinkFrames} durationInFrames={Math.round(fps * 1.4)}>
-        <Audio src={staticFile('sfx/ding.wav')} />
+        <Audio src={staticFile('sfx/ding.wav')} volume={seg.voAnswer ? 0.55 : 1} />
       </Sequence>
+      {seg.voAnswer ? (
+        <Sequence from={thinkFrames + 8}>
+          <Audio src={staticFile(`episode/${seg.voAnswer}`)} />
+        </Sequence>
+      ) : null}
 
       <div style={{position: 'absolute', top: 250, left: 40, right: 40, transform: `translateY(${(drop - 1) * 120}px)`, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, zIndex: 5}}>
         <div style={{padding: '6px 30px', borderRadius: 40, background: '#e60012', border: '5px solid #000', fontSize: 40, fontWeight: 900, color: '#fff'}}>{`لغز ${index + 1} من ${total}`}</div>
@@ -210,10 +240,10 @@ export const Reel: React.FC<EpisodeProps> = (props) => {
       <Background />
       <Series>
         <Series.Sequence durationInFrames={REEL_INTRO * FPS}>
-          <ReelCard title={CHANNEL} subtitle={`${total} ألغاز في دقيقة.. هل تحلها؟`} bg="linear-gradient(160deg,#1b2a6b 0%,#3b1d7a 55%,#0f1640 100%)" />
+          <ReelCard title={CHANNEL} subtitle={`${total} ألغاز في أقل من دقيقة.. هل تحلها؟`} bg="linear-gradient(160deg,#1b2a6b 0%,#3b1d7a 55%,#0f1640 100%)" />
         </Series.Sequence>
         {riddles.map((seg, i) => (
-          <Series.Sequence key={i} durationInFrames={(REEL_THINK + REEL_REVEAL) * FPS}>
+          <Series.Sequence key={i} durationInFrames={reelSec(seg) * FPS}>
             <ChannelPill />
             <ReelRiddle seg={seg} index={i} total={total} />
           </Series.Sequence>
