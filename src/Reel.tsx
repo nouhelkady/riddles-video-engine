@@ -110,12 +110,12 @@ const TextBox: React.FC<{seg: RiddleSegment}> = ({seg}) => {
   const frame = useCurrentFrame();
   const {fps} = useVideoConfig();
   const full = String(seg.text ?? seg.title ?? '');
-  const m = full.match(/^\s*((?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}️?‍?)+)\s*/u);
+  const m = full.match(/((?:\p{Regional_Indicator}{2}|\p{Extended_Pictographic}\uFE0F?\u200D?)+)/u);
   const pop = spring({frame, fps, config: {damping: 12}});
   return (
     <div style={{position: 'absolute', top: 520, left: 60, right: 60, height: 720, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 20}}>
       {m ? <div style={{fontSize: 360, lineHeight: 1.1, fontFamily: EMOJI_FONT, transform: `scale(${0.6 + 0.4 * pop})`}}>{m[1]}</div> : null}
-      <div style={{fontSize: m ? 64 : 88, fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1.45, ...stroke(7)}}>{m ? full.slice(m[0].length).trim() : full}</div>
+      <div style={{fontSize: m ? 64 : 88, fontWeight: 900, color: '#fff', textAlign: 'center', lineHeight: 1.45, ...stroke(7)}}>{m ? full.replace(m[0], ' ').replace(/\s+/g, ' ').trim() : full}</div>
     </div>
   );
 };
