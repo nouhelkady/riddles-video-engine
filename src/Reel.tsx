@@ -17,7 +17,7 @@ const CHANNEL = 'ألغاز القاضي';
 const stroke = (px: number): React.CSSProperties => ({WebkitTextStroke: `${px}px #000`, paintOrder: 'stroke fill'});
 const EMOJI_FONT = "'Noto Color Emoji', 'Apple Color Emoji', sans-serif";
 
-const REEL_BUDGET = 59 - REEL_INTRO - REEL_OUTRO;
+const REEL_BUDGET = 57 - REEL_INTRO - REEL_OUTRO;
 
 /** Each riddle keeps its narration: thinking time covers the question, the reveal covers the answer. */
 export const reelTiming = (s: RiddleSegment) => ({
