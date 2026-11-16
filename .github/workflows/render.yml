@@ -58,12 +58,15 @@ jobs:
           npx remotion render src/index.ts Episode out/video.mp4 \
             --props=public/episode/episode.json \
             --concurrency=100% --crf=23 --timeout=120000 $BROWSER_FLAG
+          npx remotion render src/index.ts Reel out/reel.mp4 \
+            --props=public/episode/episode.json \
+            --concurrency=100% --crf=23 --timeout=120000 $BROWSER_FLAG
 
       - name: Publish video
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" out/video.mp4 --title "$EPISODE_NAME" --notes "Rendered automatically ($RUN_URL)"
+          gh release create "$TAG" out/video.mp4 out/reel.mp4 --title "$EPISODE_NAME" --notes "Rendered automatically ($RUN_URL)"
 
       - name: Tell n8n the render ended
         if: always() && inputs.resumeUrl != ''
